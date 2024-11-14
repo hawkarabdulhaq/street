@@ -3,7 +3,7 @@ import osmnx as ox
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# Manually creating sample data with equal-length arrays
+# Sample data to create the DataFrame
 data = {
     "highway": [
         "residential", "service", "footway", "tertiary", "unclassified", "track", 
@@ -32,12 +32,12 @@ data = {
     ]
 }
 
-# Ensure data is consistent
+# Ensure data consistency before creating DataFrame
 if len(data["highway"]) == len(data["count"]):
-    # Create DataFrame
     df = pd.DataFrame(data)
 else:
     st.error("Data columns are not of the same length. Please check your data.")
+    df = pd.DataFrame()  # Create an empty DataFrame to avoid NameError
 
 # Streamlit setup
 st.title("Street Network Visualization with Selected Highway Types")
@@ -49,16 +49,16 @@ for highway_type in df['highway']:
     if st.checkbox(highway_type):
         selected_types.append(highway_type)
 
-# Filter the DataFrame based on selected highway types
-filtered_df = df[df['highway'].isin(selected_types)]
+# Filter the DataFrame to include only selected highway types
+filtered_df = df[df['highway'].isin(selected_types)] if not df.empty else pd.DataFrame()
 
 # Display selected data
 st.write("### Selected Data")
 st.write(filtered_df)
 
-# Proceed with network visualization if there are selected types
+# Proceed with network visualization if there are selected types and data is available
 if not filtered_df.empty:
-    # Define bounding box for Erbil (in latitude and longitude)
+    # Define bounding box coordinates for the region of interest (example: Erbil)
     north, south, east, west = 36.3285858594, 36.0677186039, 44.1787842755, 43.8447719235
     
     # Download the street network
@@ -71,4 +71,4 @@ if not filtered_df.empty:
     # Display the plot in Streamlit
     st.pyplot(fig)
 else:
-    st.write("No highway types selected. Please select at least one to visualize.")
+    st.write("No highway types selected or no data available. Please select at least one type.")
