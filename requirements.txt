@@ -3,3 +3,4 @@ osmnx
 matplotlib
 folium
 earthengine-api
+geemap
