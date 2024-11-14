@@ -3,6 +3,7 @@ import osmnx as ox
 import folium
 from pyproj import Proj, transform
 from folium.plugins import MiniMap
+import streamlit.components.v1 as components
 
 # Set the title of the Streamlit app
 st.title("Erbil Street Network Visualization with Interactive Map")
@@ -44,6 +45,7 @@ folium.GeoJson(gdf_edges).add_to(m)
 m.add_child(folium.LatLngPopup())  # Shows lat/lon when clicking on the map
 m.add_child(folium.LayerControl())  # Toggle layers
 
-# Show the folium map in Streamlit
+# Display the folium map in Streamlit using components
 st.write("Interactive map with zoom and controls:")
-st.map(m)
+# Render the folium map HTML
+components.html(m._repr_html_(), height=600)
