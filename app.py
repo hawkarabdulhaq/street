@@ -1,74 +1,49 @@
 import streamlit as st
 import osmnx as ox
-import matplotlib.pyplot as plt
-import pandas as pd
+import folium
+from pyproj import Proj, transform
+from folium.plugins import MiniMap
 
-# Sample data to create the DataFrame
-data = {
-    "highway": [
-        "residential", "service", "footway", "tertiary", "unclassified", "track", 
-        "secondary", "trunk", "pedestrian", "primary", "path", "living_street",
-        "trunk_link", "tertiary_link", "motorway_link", "secondary_link",
-        "primary_link", "motorway", "[footway, steps]", "[residential, track]",
-        "[footway, path]", "cycleway", "[residential, unclassified]",
-        "[residential, service]", "[unclassified, track]", "[track, unclassified]",
-        "[footway, service]", "[service, track]", "steps", "road",
-        "[pedestrian, service]", "[footway, residential]", "[residential, footway]",
-        "[residential, tertiary]", "[footway, pedestrian]", "[service, unclassified]",
-        "[pedestrian, steps]", "[tertiary_link, tertiary]", "[residential, living_street]",
-        "[residential, path]", "[service, tertiary]", "[tertiary_link, unclassified]",
-        "[pedestrian, living_street]", "[residential, pedestrian, steps]",
-        "[primary_link, trunk_link]", "[path, tertiary]", "[residential, pedestrian]",
-        "[path, track]", "[residential, unclassified, track]", "[residential, track, unclassified]",
-        "[motorway, motorway_link]", "[secondary, tertiary]", "[trunk, primary]",
-        "[primary, trunk]", "[tertiary, trunk_link]", "[trunk_link, tertiary]",
-        "[trunk, trunk_link]"
-    ],
-    "count": [
-        97389, 15003, 12596, 10820, 3888, 3502, 2578, 2521, 1538, 1528, 1078, 866,
-        660, 631, 378, 266, 263, 198, 104, 74, 72, 66, 62, 28, 22, 22, 20, 18, 16,
-        14, 14, 14, 14, 12, 12, 12, 10, 6, 4, 4, 4, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1,
-        1, 1, 1, 1, 1
-    ]
-}
+# Set the title of the Streamlit app
+st.title("Erbil Street Network Visualization with Interactive Map")
 
-# Ensure data consistency before creating DataFrame
-if len(data["highway"]) == len(data["count"]):
-    df = pd.DataFrame(data)
-else:
-    st.error("Data columns are not of the same length. Please check your data.")
-    df = pd.DataFrame()  # Create an empty DataFrame to avoid NameError
+# Original Web Mercator coordinates (EPSG:3857)
+x_north, y_north = 4901332.950, 4328501.526  # Top left (north)
+x_south, y_south = 4902747.019, 4327210.908  # Bottom right (south)
 
-# Streamlit setup
-st.title("Street Network Visualization with Selected Highway Types")
+# Define projections for Web Mercator and Latitude/Longitude
+proj_3857 = Proj('epsg:3857')
+proj_4326 = Proj('epsg:4326')
 
-# Checkboxes for each highway type
-st.write("Select the highway types you want to include in the visualization:")
-selected_types = []
-for highway_type in df['highway']:
-    if st.checkbox(highway_type):
-        selected_types.append(highway_type)
+# Convert coordinates from EPSG:3857 to EPSG:4326 (latitude/longitude)
+north, west = transform(proj_3857, proj_4326, x_north, y_north)
+south, east = transform(proj_3857, proj_4326, x_south, y_south)
 
-# Filter the DataFrame to include only selected highway types
-filtered_df = df[df['highway'].isin(selected_types)] if not df.empty else pd.DataFrame()
+# Define the bounding box in latitude and longitude
+bbox = (north, south, east, west)
 
-# Display selected data
-st.write("### Selected Data")
-st.write(filtered_df)
+# Inform the user about the bounding box being used
+st.write(f"Bounding box (lat/lon): North={north}, South={south}, East={east}, West={west}")
 
-# Proceed with network visualization if there are selected types and data is available
-if not filtered_df.empty:
-    # Define bounding box coordinates for the region of interest (example: Erbil)
-    north, south, east, west = 36.3285858594, 36.0677186039, 44.1787842755, 43.8447719235
-    
-    # Download the street network
-    st.write("Fetching the street network for the selected bounding box...")
-    G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
-    
-    # Plot the filtered street network
-    fig, ax = ox.plot_graph(G, node_size=0, show=False)
+# Download the street network using the converted bbox
+st.write("Fetching the street network for the specified bounding box...")
+G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
 
-    # Display the plot in Streamlit
-    st.pyplot(fig)
-else:
-    st.write("No highway types selected or no data available. Please select at least one type.")
+# Create a folium map centered around the middle of the bounding box
+m = folium.Map(location=[(north + south) / 2, (east + west) / 2], zoom_start=13, control_scale=True)
+
+# Add a mini-map
+minimap = MiniMap(toggle_display=True)
+m.add_child(minimap)
+
+# Add the street network to the folium map using osmnx's graph_to_gdf method
+gdf_nodes, gdf_edges = ox.graph_to_gdfs(G)
+folium.GeoJson(gdf_edges).add_to(m)
+
+# Add zoom control and other controls
+m.add_child(folium.LatLngPopup())  # Shows lat/lon when clicking on the map
+m.add_child(folium.LayerControl())  # Toggle layers
+
+# Show the folium map in Streamlit
+st.write("Interactive map with zoom and controls:")
+st.map(m)
