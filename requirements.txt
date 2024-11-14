@@ -2,4 +2,4 @@ streamlit
 osmnx
 matplotlib
 folium
-ee
+earthengine-api
