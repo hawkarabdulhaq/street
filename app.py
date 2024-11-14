@@ -4,9 +4,14 @@ import folium
 from pyproj import Proj, transform
 from folium.plugins import MiniMap
 import streamlit.components.v1 as components
+import ee
+import geemap  # To help with converting the Earth Engine dataset to folium layers
+
+# Initialize Earth Engine
+ee.Initialize()
 
 # Set the title of the Streamlit app
-st.title("Erbil Street Network Visualization with Interactive Map")
+st.title("Erbil Street Network and Landsat NDVI Visualization")
 
 # Original Web Mercator coordinates (EPSG:3857)
 x_north, y_north = 4901332.950, 4328501.526  # Top left (north)
@@ -45,7 +50,30 @@ folium.GeoJson(gdf_edges).add_to(m)
 m.add_child(folium.LatLngPopup())  # Shows lat/lon when clicking on the map
 m.add_child(folium.LayerControl())  # Toggle layers
 
-# Display the folium map in Streamlit using components
-st.write("Interactive map with zoom and controls:")
+# Add the NDVI dataset as the second layer
+st.write("Fetching Landsat NDVI data for 2017...")
+
+# Define the Earth Engine dataset
+dataset = ee.ImageCollection('LANDSAT/COMPOSITES/C02/T1_L2_32DAY_NDVI').filterDate('2017-01-01', '2017-12-31')
+colorized = dataset.select('NDVI')
+
+# Set visualization parameters
+colorizedVis = {
+    'min': 0,
+    'max': 1,
+    'palette': [
+        'ffffff', 'ce7e45', 'df923d', 'f1b555', 'fcd163', '99b718', '74a901',
+        '66a000', '529400', '3e8601', '207401', '056201', '004c00', '023b01',
+        '012e01', '011d01', '011301'
+    ],
+}
+
+# Visualize the NDVI data over the bounding box
+ndvi_map = colorized.mean().clip(ee.Geometry.Rectangle([west, south, east, north]))  # Clip the dataset to the bbox
+ndvi_layer = geemap.ee_tile_layer(ndvi_map, colorizedVis, 'NDVI 2017')  # Convert to folium tile layer
+m.add_child(ndvi_layer)
+
+# Show the map in Streamlit
+st.write("Interactive map with zoom, controls, and Landsat NDVI layer:")
 # Render the folium map HTML
 components.html(m._repr_html_(), height=600)
